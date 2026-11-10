@@ -112,7 +112,7 @@ instabox ssh mybox -- 'git clone https://github.com/handsomezhuzhu/im-switcher.g
 **为什么它不是 GitHub Actions 的 job**：它需要真的把 mutter compositor 跑起来。
 GitHub 的容器没有 GPU、没有 seat、也没有 logind，`gnome-shell --headless` 建完软件
 渲染器就静默退出（退出码 0，连错误都不打）——这是环境限制，不是代码问题。
-所以 CI 里只放静态检查和单元测试，真加载测试放真机上跑。
+CI 里只放静态检查；单元测试和真加载测试都在本地或真机上跑。
 
 ## 翻译
 

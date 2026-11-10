@@ -122,8 +122,8 @@ Verified on Fedora 45 / GNOME 51.1 and Ubuntu 24.04 / GNOME 46.
 **Why it is not a GitHub Actions job:** it needs a real mutter compositor. GitHub's
 containers have no GPU, no seat and no logind, and `gnome-shell --headless` exits
 silently (code 0, no error) right after creating the software renderer — an
-environment limitation, not a code problem. CI here covers static checks and unit
-tests; the load test belongs on a real machine.
+environment limitation, not a code problem. CI here covers static checks only; the unit
+tests and this load test run locally or on a real machine.
 
 ## Translations
 

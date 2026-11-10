@@ -6,16 +6,16 @@ on:
   pull_request:
   workflow_dispatch:
 
-# 关于那个"无头 GNOME Shell 真加载"测试为什么不在这个 workflow 里：
-# 它需要真的把 mutter compositor 跑起来。GitHub 的容器没有 GPU、没有 seat、
-# 也没有 logind，gnome-shell --headless 建完软件渲染器就静默退出（退出码 0，
-# 连错误都不打），是环境限制，不是代码问题。
-# 那个测试在真机上是好的，见 README「测试」一节和 scripts/ci-shell-test.sh
-# （已在 Fedora 45 / GNOME 51.1 和 Ubuntu 24.04 / GNOME 46 上验证过，
-#  并且抓出过两个真 bug）。要跑就在盒子或虚拟机上跑，一条命令。
+# 只做静态检查：语法、metadata、翻译、shell 脚本、能不能打出 EGO zip。
+# 单元测试（./tests/run.sh）和真机加载测试（./scripts/ci-shell-test.sh）都不放 CI：
+#   - 单元测试本地一条命令就跑，2 秒出结果，没必要占 CI 时间
+#   - 真机加载测试需要真的把 mutter compositor 跑起来。GitHub 的容器没有 GPU、
+#     没有 seat、也没有 logind，gnome-shell --headless 建完软件渲染器就静默退出
+#     （退出码 0，连错误都不打），是环境限制，不是代码问题。
+#     那个测试在真机上是好的，见 README「测试」一节。
+# 哪天想加回来，把下面的注释连同对应的 job 一起取消注释即可。
 
 jobs:
-  # 不需要图形环境，几秒钟跑完
   static:
     name: 静态检查
     runs-on: ubuntu-latest
@@ -70,14 +70,14 @@ jobs:
           bash scripts/build-zip.sh
           unzip -l im-switcher.zip | grep -q metadata.json
 
-  # 纯逻辑：框架状态读写、Hidden 覆盖、反复切换
-  unit:
-    name: 单元测试
-    runs-on: ubuntu-latest
-    container: fedora:latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: 装 gjs
-        run: dnf -y install gjs
-      - name: 跑测试
-        run: bash tests/run.sh
+  # ---- 想跑单元测试的话取消下面注释 ----
+  # unit:
+  #   name: 单元测试
+  #   runs-on: ubuntu-latest
+  #   container: fedora:latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: 装 gjs
+  #       run: dnf -y install gjs
+  #     - name: 跑测试
+  #       run: bash tests/run.sh
