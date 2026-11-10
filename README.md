@@ -88,20 +88,42 @@ with plain `gjs` in CI.
 
 The second one is the point: it installs the extension into a throwaway `$HOME`,
 starts a private session bus with `dbus-run-session`, runs
-`gnome-shell --headless` (mutter's headless backend — no window, no display), then
-asserts that
+`gnome-shell --headless --no-x11` (mutter's headless backend — no window, no display),
+then asserts that
 
 - the log contains `[im-switcher] enabled, framework=...`
 - no `im-switcher`-related error or warning appears
 
-Real bugs it caught during development: `St.BoxLayout`'s `vertical` property was
-removed in GNOME 48 (replaced by `orientation`) — invisible to any syntax check, fatal
-at load time. Also `Gio.File.load_contents()` returns `[ok, bytes]`, not a single
-value; and `gsettings set` **silently loses its write when no session bus is running**
-(dconf's service isn't there), which is why the enable step lives inside the
-`dbus-run-session`.
+Real bugs it caught during development:
 
-Verified on Fedora 45 / GNOME 51.1 and on an Ubuntu 24.04 / GNOME 46 instabox sandbox.
+- `St.BoxLayout`'s `vertical` property was removed in GNOME 48 (replaced by
+  `orientation`) — invisible to any syntax check, fatal at load time
+- `Gio.File.load_contents()` returns `[ok, bytes]`, not a single value
+- `gsettings set` **silently loses its write when no session bus is running**
+  (dconf's service isn't there), which is why the enable step lives inside the
+  `dbus-run-session`
+- GVariant's text format is `@as []` on Ubuntu's GLib but `[]` on Fedora's —
+  the old parser crashed on Debian-family systems
+- GNOME 46 still uses `vertical` while 48+ uses `orientation`, so a single
+  hard-coded choice breaks half the supported range
+
+**Where to run it:** on a real machine — your laptop, a VM, or a cloud box. It needs
+`gnome-shell`, `gjs`, `gettext` and `dbus`; no X server, no GPU, no display:
+
+```bash
+# on an instabox sandbox (Ubuntu 24.04 / GNOME 46)
+instabox ssh mybox -- 'sudo apt install -y gnome-shell gjs gettext'
+instabox ssh mybox -- 'git clone https://github.com/handsomezhuzhu/im-switcher.git \
+  && cd im-switcher && SHELL_TIMEOUT=60 bash scripts/ci-shell-test.sh'
+```
+
+Verified on Fedora 45 / GNOME 51.1 and Ubuntu 24.04 / GNOME 46.
+
+**Why it is not a GitHub Actions job:** it needs a real mutter compositor. GitHub's
+containers have no GPU, no seat and no logind, and `gnome-shell --headless` exits
+silently (code 0, no error) right after creating the software renderer — an
+environment limitation, not a code problem. CI here covers static checks and unit
+tests; the load test belongs on a real machine.
 
 ## Translations
 

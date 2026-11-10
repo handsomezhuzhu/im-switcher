@@ -80,7 +80,8 @@ po/                   翻译模板和各语言
 ```
 
 第二条是重点：它用一个临时 `$HOME` 装上扩展、起一条独立会话总线、
-跑 `gnome-shell --headless`（mutter 的无头后端，不开窗口），然后断言
+跑 `gnome-shell --headless --no-x11`（mutter 的无头后端，不开窗口、不碰显示器），
+然后断言
 
 - 日志里出现 `[im-switcher] enabled, framework=...`
 - 没有任何 `im-switcher` 相关的 error / warning
@@ -93,9 +94,25 @@ po/                   翻译模板和各语言
 - `gsettings set` 在**没有会话总线**时写入会静默丢失（dconf 服务不在），
   所以启用那步必须挪进 `dbus-run-session` 里
 - GVariant 的文本格式在 Ubuntu 的 GLib 上是 `@as []`、Fedora 上是 `[]`，
-  解析不兼容会让安装脚本直接崩——这是拿到 instabox 的 Ubuntu 24.04 盒子上才发现的
+  解析不兼容会让安装脚本在 Debian 系上直接崩
+- GNOME 46 用 `vertical`、48+ 用 `orientation`，写死任何一个都会炸掉一半支持范围
+
+**在哪儿跑**：真机——自己的电脑、虚拟机、云盒子都行。需要 `gnome-shell`、`gjs`、
+`gettext`、`dbus`，不需要 X 服务器、不需要 GPU、不需要显示器：
+
+```bash
+# instabox 盒子上（Ubuntu 24.04 / GNOME 46）
+instabox ssh mybox -- 'sudo apt install -y gnome-shell gjs gettext'
+instabox ssh mybox -- 'git clone https://github.com/handsomezhuzhu/im-switcher.git \
+  && cd im-switcher && SHELL_TIMEOUT=60 bash scripts/ci-shell-test.sh'
+```
 
 已在 Fedora 45 / GNOME 51.1 和 Ubuntu 24.04 / GNOME 46 上验证。
+
+**为什么它不是 GitHub Actions 的 job**：它需要真的把 mutter compositor 跑起来。
+GitHub 的容器没有 GPU、没有 seat、也没有 logind，`gnome-shell --headless` 建完软件
+渲染器就静默退出（退出码 0，连错误都不打）——这是环境限制，不是代码问题。
+所以 CI 里只放静态检查和单元测试，真加载测试放真机上跑。
 
 ## 翻译
 
