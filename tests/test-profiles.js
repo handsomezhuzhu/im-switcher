@@ -44,6 +44,20 @@ const readFile = path => new Promise(resolve => {
 const pendingOf = paths => new Promise(resolve =>
     pendingProfileAsync(paths, resolve));
 
+// 覆盖文件必须是 GLib 能加载的合法桌面项，否则 gnome-session 压根不注册它，
+// 系统 /etc/xdg/autostart 那份就会正常跑起来（真实踩过的坑）。
+function desktopEntryLoads(path) {
+    const AppInfo = Gio.DesktopAppInfo ?? GioUnix?.DesktopAppInfo;
+    if (!AppInfo)
+        return true; // 这台机器没有这个 API，跳过
+    try {
+        const app = AppInfo.new_from_filename(path);
+        return app !== null && app.get_is_hidden();
+    } catch (error) {
+        return false;
+    }
+}
+
 // 每个测试用一个全新的临时 HOME，互不影响
 const tmpHomes = [];
 
@@ -135,6 +149,11 @@ async function run() {
         setFcitxAutostart(paths, false);
         const hidden = await readFile(paths.autostartUser);
         check('写了 Hidden=true', hidden.includes('Hidden=true'), true);
+        check('是完整桌面项（Type/Name/Exec 齐全）',
+            /^Type=Application$/m.test(hidden) &&
+            /^Name=/m.test(hidden) &&
+            /^Exec=/m.test(hidden), true);
+        check('GLib 能加载它且视为隐藏', desktopEntryLoads(paths.autostartUser), true);
 
         setFcitxAutostart(paths, true);
         check('切回 fcitx5 时删掉覆盖',
