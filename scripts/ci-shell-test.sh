@@ -92,8 +92,15 @@ echo
 echo "===== 断言 ====="
 rc=0
 
+dump_log() {
+    echo
+    echo "===== shell 日志末尾 80 行（排查用） ====="
+    tail -80 "$LOG" 2>/dev/null || echo "(读不到日志)"
+}
+
 if ! grep -q '\[im-switcher\] enabled, framework=' "$LOG"; then
     echo "::error::扩展没有被加载（日志里没有 enabled 那行）"
+    dump_log
     rc=1
 else
     echo "  ok   扩展加载成功"
@@ -102,6 +109,7 @@ fi
 if grep -i "im-switcher" "$LOG" | grep -iE "error|exception|warning"; then
     echo "::error::扩展加载过程中有报错"
     grep -i "im-switcher" "$LOG" | grep -iE "error|exception|warning"
+    dump_log
     rc=1
 else
     echo "  ok   没有报错"

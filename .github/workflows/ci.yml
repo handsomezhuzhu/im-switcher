@@ -98,8 +98,3 @@ jobs:
             mesa-dri-drivers libglvnd-glx
       - name: 起无头 GNOME Shell 加载扩展
         run: SHELL_TIMEOUT=90 bash scripts/ci-shell-test.sh
-      - name: 失败时把 shell 日志贴出来
-        if: failure()
-        run: |
-          log=$(grep -o '/tmp/[^ ]*shell.log' /dev/null; find /tmp -name shell.log -newermt '-10 minutes' | head -1)
-          [ -n "$log" ] && tail -100 "$log" || echo "没找到 shell.log"
