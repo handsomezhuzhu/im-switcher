@@ -31,6 +31,29 @@ import {
 } from './lib/profiles.js';
 import {endSession} from './lib/session.js';
 
+/**
+ * St.BoxLayout 的朝向属性在 GNOME 48 从 vertical(bool) 换成了 orientation(enum)，
+ * 新旧不兼容：48+ 传 vertical 会抛 "No property vertical"，
+ * ≤47 传 orientation 会抛 "No property orientation"。
+ * metadata 声明支持 45–52，所以这里按运行时实际支持的来，先试新的再退回老的。
+ *
+ * （这个坑是本项目在 instabox 的 Ubuntu 24.04 / GNOME 46 盒子上跑
+ *  scripts/ci-shell-test.sh 时发现的——本地只有 GNOME 51，永远发现不了。）
+ */
+function boxLayout(vertical, extraParams = {}) {
+    const params = {...extraParams};
+    try {
+        params.orientation = vertical
+            ? Clutter.Orientation.VERTICAL
+            : Clutter.Orientation.HORIZONTAL;
+        return new St.BoxLayout(params);
+    } catch (error) {
+        delete params.orientation;
+        params.vertical = vertical;
+        return new St.BoxLayout(params);
+    }
+}
+
 const IMSwitcherIndicator = GObject.registerClass(
 class IMSwitcherIndicator extends PanelMenu.Button {
     _init(paths) {
@@ -46,10 +69,7 @@ class IMSwitcherIndicator extends PanelMenu.Button {
             y_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        const box = new St.BoxLayout({
-            style_class: 'panel-status-menu-box',
-            orientation: Clutter.Orientation.HORIZONTAL,
-        });
+        const box = boxLayout(false, {style_class: 'panel-status-menu-box'});
         box.add_child(this._icon);
         box.add_child(this._label);
         this.add_child(box);
@@ -237,10 +257,7 @@ class IMSwitcherIndicator extends PanelMenu.Button {
 
     _showDialog({title, body, buttons}) {
         const dialog = new ModalDialog.ModalDialog();
-        const box = new St.BoxLayout({
-            orientation: Clutter.Orientation.VERTICAL,
-            x_expand: true,
-        });
+        const box = boxLayout(true, {x_expand: true});
         box.add_child(new St.Label({
             style: 'font-weight: bold; font-size: 1.1em;',
             x_expand: true,
