@@ -40,8 +40,10 @@ jobs:
           python3 - <<'PY'
           import json
           d = json.load(open('metadata.json'))
-          for key in ('uuid', 'name', 'description', 'shell-version', 'url', 'version'):
+          for key in ('uuid', 'name', 'description', 'shell-version', 'url'):
               assert key in d, f'缺少字段 {key}'
+          # version 字段 EGO 已废弃（内部使用），我们不该填
+          assert 'version' not in d, 'version 字段已废弃，删掉'
           assert '@' in d['uuid'], 'UUID 必须是 xxx@yyy 形式'
           assert d['gettext-domain'] == 'im-switcher', 'gettext-domain 要和生产 .mo 的文件名一致'
           assert '51' in d['shell-version'], 'shell-version 至少要覆盖当前 GNOME'
