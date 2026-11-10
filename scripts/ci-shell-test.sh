@@ -61,9 +61,14 @@ def enabled_list():
     out = subprocess.check_output(
         ['gsettings', 'get', 'org.gnome.shell', 'enabled-extensions'],
         text=True, stderr=subprocess.DEVNULL)
-    # G_MESSAGES_DEBUG=all 会让 GLib 往输出里塞调试行，只认真正的列表
-    line = [l for l in out.splitlines()
-            if l.strip().startswith('[') and l.strip().endswith(']')][-1]
+    # 只认含方括号的行：G_MESSAGES_DEBUG=all 会让 GLib 往输出里塞调试行
+    candidates = [l.strip() for l in out.splitlines() if '[' in l and ']' in l]
+    if not candidates:
+        raise RuntimeError(f'gsettings 没返回列表，原始输出: {out!r}')
+    line = candidates[-1]
+    # GVariant 文本格式可能带类型前缀（Ubuntu 的 GLib 输出 "@as []"，Fedora 输出 "[]"）
+    if line.startswith('@') and '[' in line:
+        line = line[line.index('['):]
     return ast.literal_eval(line)
 
 lst = enabled_list()

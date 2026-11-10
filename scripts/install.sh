@@ -32,13 +32,21 @@ set_enabled() {
 import ast, subprocess, sys
 uuid, want = sys.argv[1], sys.argv[2] == 'yes'
 key = 'org.gnome.shell'
-cur = subprocess.check_output(['gsettings', 'get', key, 'enabled-extensions'], text=True).strip()
-lst = [x for x in ast.literal_eval(cur) if x != uuid]
+out = subprocess.check_output(['gsettings', 'get', key, 'enabled-extensions'],
+                              text=True, stderr=subprocess.DEVNULL)
+# 只认含方括号的行；GVariant 可能带 "@as " 类型前缀（Ubuntu）或没有（Fedora）
+candidates = [l.strip() for l in out.splitlines() if '[' in l and ']' in l]
+if not candidates:
+    sys.exit(f'gsettings 没返回列表，原始输出: {out!r}')
+line = candidates[-1]
+if line.startswith('@') and '[' in line:
+    line = line[line.index('['):]
+lst = [x for x in ast.literal_eval(line) if x != uuid]
 if want:
     lst.append(uuid)
-out = '[' + ', '.join("'%s'" % x for x in lst) + ']'
-subprocess.run(['gsettings', 'set', key, 'enabled-extensions', out], check=True)
-print(f'  enabled-extensions -> {out}')
+subprocess.run(['gsettings', 'set', key, 'enabled-extensions',
+                '[' + ', '.join("'%s'" % x for x in lst) + ']'], check=True)
+print(f'  enabled-extensions -> {lst}')
 PY
 }
 

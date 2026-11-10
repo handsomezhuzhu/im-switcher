@@ -1,138 +1,157 @@
 # im-switcher
 
-顶栏一键切换 GNOME 的输入法框架：**IBus ⇄ Fcitx5**。
+Switch the GNOME input method framework — **IBus ⇄ Fcitx5** — from the top panel.
 
-点一下顶栏的键盘图标 → 「Switch to Fcitx5」→ 配置立刻写入 → 弹窗问你要
-「立即重启 / 立即注销 / 稍后」。选稍后的话，菜单里会留着「立即注销 / 立即重启」随时补刀，
-顶栏也会显示 `重登后生效：Fcitx5`，不会骗你。
+Click the keyboard icon → *Switch to Fcitx5* → the config is written immediately →
+a dialog asks whether to restart / log out **now** or **later**. Pick "Later" and the
+menu keeps *Log out now* / *Restart now* around for whenever you're ready, while the
+panel label reads `After login: Fcitx5` so it never lies to you.
 
+**[中文](README.zh-CN.md)** · [GNOME Extensions](https://extensions.gnome.org/extension/0000/im-switcher/)
 
-## 为什么需要它
+## Why
 
-Fedora / Ubuntu 默认用 IBus，而 Fcitx5 才有微信输入法那类的体验（比如
-[WowType](https://github.com/Gloridust/WowType)、雾凇拼音）。两个框架可以同时装，
-但同一个会话只能有一个生效，官方切换方式永远是「改环境变量 → 注销重登」——
-忘了改哪儿、改完忘了注销，都很烦。这个扩展把这件事变成一个点击。
+Fedora and Ubuntu ship IBus by default, while Fcitx5 is what unlocks the
+WeChat-input-method class of experience ([WowType](https://github.com/Gloridust/WowType),
+rime-ice, …). Both frameworks can be installed side by side, but only one is active per
+session, and the official way to switch is always *"edit environment variables → log
+out"* — easy to forget where to edit, easy to forget to log out. This extension turns
+that into one click.
 
-## 安装
+## Install
 
 ```bash
 git clone https://github.com/handsomezhuzhu/im-switcher.git
 cd im-switcher
-./scripts/install.sh          # 卸载：./scripts/install.sh --uninstall
+./scripts/install.sh          # uninstall: ./scripts/install.sh --uninstall
 ```
 
-不需要 root，全部装在 `$HOME` 下面。装完**注销重登**一次（GNOME Shell 不会热重载扩展代码）。
+No root required — everything lives under `$HOME`. **Log out and back in once**
+afterwards (GNOME Shell never hot-reloads extension code).
 
-依赖：`gjs`、`gettext`（编译翻译用）。Fedora：
+Requirements: `gjs` and `gettext` (for building the translations).
 
 ```bash
-sudo dnf install gjs gettext
+sudo dnf install gjs gettext      # Fedora
+sudo apt install gjs gettext      # Ubuntu / Debian
 ```
 
-## 它是怎么让切换生效的
+## How the switch actually sticks
 
-这是本扩展唯一有技术含量的地方，踩过两个坑：
+This is the only part with any real depth, and it cost two war wounds:
 
-**坑 1：光写 `~/.config/environment.d/` 不够。**
-gnome-session 在 Wayland 下会**以登录 shell 重新 exec 自己**
-（`gnome-session/gnome-session/leader-main.c` 的 `maybe_reexec_with_login_shell`），
-于是 `/etc/profile.d/fcitx5.sh`（fcitx5 的 RPM 自带）被 sourcing 进会话环境，
-把 `GTK_IM_MODULE` 等四个变量**无条件设回 fcitx**，覆盖掉 environment.d 的结果。
+**Pitfall 1 — `~/.config/environment.d/` alone is not enough.**
+On Wayland, gnome-session **re-execs itself through a login shell**
+(`maybe_reexec_with_login_shell()` in `gnome-session/gnome-session/leader-main.c`),
+which sources `/etc/profile.d/fcitx5.sh` — shipped by the fcitx5 RPM — and that file
+unconditionally exports `GTK_IM_MODULE=fcitx` & friends, **overriding** whatever
+environment.d wrote.
 
-**坑 2：光有环境变量也不够。**
-切到 IBus 时如果 fcitx5 还在自启动，两个框架的后台程序会同时跑、互相抢快捷键。
-所以扩展还会用 `~/.config/autostart/org.fcitx.Fcitx5.desktop` + `Hidden=true`
-把 fcitx5 的自启动盖掉，切回来时再删掉这个覆盖。
+**Pitfall 2 — environment variables alone are not enough either.**
+When you switch to IBus but fcitx5 keeps auto-starting, both frameworks' daemons run
+and fight over the same global hotkeys. So the extension also drops
+`~/.config/autostart/org.fcitx.Fcitx5.desktop` with `Hidden=true` to suppress the
+fcitx5 autostart, and removes that override when you switch back.
 
-所以配置写两处，缺一不可：
+Hence two config locations, both required:
 
-| 文件 | 谁读它 |
+| File | Read by |
 |---|---|
-| `~/.config/environment.d/im-switcher.conf` | systemd 用户管理器 |
-| `~/.config/im-switcher/framework` | `~/.bash_profile` 里的片段（安装时追加，带标记，可干净撤掉） |
+| `~/.config/environment.d/im-switcher.conf` | the systemd user manager |
+| `~/.config/im-switcher/framework` | a snippet in `~/.bash_profile` (appended by the installer, marked, cleanly removable) |
 
-`~/.bash_profile` 那段在 `/etc/profile.d/fcitx5.sh` **之后**执行，所以它赢。
+The `~/.bash_profile` snippet runs **after** `/etc/profile.d/fcitx5.sh`, so it wins.
 
-## 命令行
-
-不想点鼠标的话，直接写标记文件再注销就行（扩展和它读的是同一个文件）：
-
-```bash
-echo fcitx5 > ~/.config/im-switcher/framework   # 或 ibus
-gnome-session-quit --logout --no-prompt
-```
-
-## 目录结构
+## Layout
 
 ```
-extension.js          顶栏图标、菜单、弹窗（UI 全在这，英文源码 + gettext）
-lib/profiles.js       框架状态读写：纯逻辑，只用 GLib/Gio，不依赖 GNOME Shell
-lib/session.js        注销/重启：org.gnome.SessionManager，失败退回命令行
-metadata.json         扩展元数据（UUID、支持的 Shell 版本、gettext 域）
-data/                 ~/.bash_profile 片段
-scripts/              install.sh / build-zip.sh / update-pot.sh / ci-shell-test.sh
-tests/                gjs 单元测试，不需要 GNOME Shell
-po/                   翻译模板和各语言
+extension.js          top-bar icon, menu, dialogs — English source + gettext
+lib/profiles.js       framework state on disk (pure logic, GLib/Gio only)
+lib/session.js        log out / restart via org.gnome.SessionManager, CLI fallback
+metadata.json         extension metadata (UUID, supported Shell versions, gettext domain)
+data/                 the ~/.bash_profile snippet
+scripts/              install.sh · build-zip.sh · update-pot.sh · ci-shell-test.sh
+tests/                gjs unit tests, no GNOME Shell needed
+po/                   translation template and languages
 .github/workflows/    CI
 ```
 
-把纯逻辑和 GNOME Shell 依赖分开，是为了让 `lib/` 能在 CI 里用 `gjs` 直接测。
+Splitting pure logic from the GNOME Shell dependency is what makes `lib/` testable
+with plain `gjs` in CI.
 
-## 测试
-
-```bash
-./tests/run.sh                        # 单元测试（只要 gjs）
-./scripts/ci-shell-test.sh            # 无头 GNOME Shell 真加载一次
-```
-
-第二条是重点：它会用一个临时 `$HOME` 装上扩展、起一条独立会话总线、
-跑 `gnome-shell --headless`（mutter 的无头后端，不开窗口），然后断言
-
-- 日志里出现 `[im-switcher] enabled, framework=...`
-- 没有任何 `im-switcher` 相关的 error / warning
-
-开发中它抓到的真问题：`St.BoxLayout` 的 `vertical` 属性在 GNOME 48 被删（换成
-`orientation`），语法检查完全看不出来，只有真加载才会炸。
-
-## 翻译
-
-源码字符串一律英文，用 `_()` 包起来；`po/zh_CN.po` 提供中文。
+## Testing
 
 ```bash
-./scripts/update-pot.sh     # 加了新 _("...") 之后跑，重新生成 .pot 并合并
-# 然后补 po/zh_CN.po 里新的空 msgstr
+./tests/run.sh                  # unit tests (gjs only)
+./scripts/ci-shell-test.sh      # load the extension in a headless GNOME Shell
 ```
 
-装的时候 `msgfmt` 把 `.po` 编成 `.mo` 放到扩展目录的 `locale/` 下，
-GNOME Shell 的 `initTranslations()` 会自动找到。
+The second one is the point: it installs the extension into a throwaway `$HOME`,
+starts a private session bus with `dbus-run-session`, runs
+`gnome-shell --headless` (mutter's headless backend — no window, no display), then
+asserts that
 
-## 发布到 GNOME Extensions
+- the log contains `[im-switcher] enabled, framework=...`
+- no `im-switcher`-related error or warning appears
 
-1. 在 GitHub 建仓库并推送（`metadata.json` 里的 `url` 要指向它）
-2. `./scripts/build-zip.sh` 打出 `im-switcher.zip`
-3. 打开 <https://extensions.gnome.org/upload/>，用 GitHub 账号登录，上传 zip
-4. 审核通过后会拿到一个扩展页；以后发新版就是重新打包上传
+Real bugs it caught during development: `St.BoxLayout`'s `vertical` property was
+removed in GNOME 48 (replaced by `orientation`) — invisible to any syntax check, fatal
+at load time. Also `Gio.File.load_contents()` returns `[ok, bytes]`, not a single
+value; and `gsettings set` **silently loses its write when no session bus is running**
+(dconf's service isn't there), which is why the enable step lives inside the
+`dbus-run-session`.
 
-zip 的根目录直接是扩展文件（`metadata.json` 在根上），和 EGO 上其它扩展一致。
-上传前确认 `metadata.json` 的 `shell-version` 覆盖了当前 GNOME——
-EGO 靠它决定扩展能不能加载，代码没问题但版本声明没跟上，是最常见的"装了不生效"。
+Verified on Fedora 45 / GNOME 51.1 and on an Ubuntu 24.04 / GNOME 46 instabox sandbox.
 
-## 卸载
+## Translations
+
+Source strings are English and wrapped in `_()`; `po/zh_CN.po` provides Chinese.
+The installer runs `msgfmt` to build `.mo` files into the extension's `locale/`
+directory, where GNOME Shell's `initTranslations()` picks them up automatically.
+
+```bash
+./scripts/update-pot.sh     # run after adding new _("...") strings
+```
+
+## Publishing to GNOME Extensions
+
+1. Push to a GitHub repo (the `url` in `metadata.json` already points at
+   `handsomezhuzhu/im-switcher`)
+2. `./scripts/build-zip.sh` produces `im-switcher.zip`
+3. Upload it at <https://extensions.gnome.org/upload/>
+4. Once reviewed you get an extension page; new releases are just a re-pack and upload
+
+The zip root holds the extension files directly (`metadata.json` at the root), matching
+what EGO expects. The one thing that bites people: `shell-version` must cover the
+current GNOME. Code that is fine but under-declared is the #1 cause of "installed but
+does nothing" on EGO — we got burned by exactly that with kimpanel and with WowType's
+theme extension.
+
+## CLI
+
+Prefer not to click? Write the marker file and log out (the extension reads the same
+file):
+
+```bash
+echo fcitx5 > ~/.config/im-switcher/framework   # or ibus
+gnome-session-quit --logout --no-prompt
+```
+
+## Uninstall
 
 ```bash
 ./scripts/install.sh --uninstall
 ```
 
-会删掉扩展、从启用列表移除、撤掉 `~/.bash_profile` 里的片段。
-这几项留着按需手动清理：
+Removes the extension, drops it from the enabled list, and strips the
+`~/.bash_profile` snippet. These are left for manual cleanup if you want them gone:
 
 ```bash
-rm -rf ~/.config/im-switcher                            # 框架标记
+rm -rf ~/.config/im-switcher                            # framework marker
 rm -f  ~/.config/environment.d/im-switcher.conf
-rm -f  ~/.config/autostart/org.fcitx.Fcitx5.desktop     # 被 Hidden 盖住的 fcitx5 自启动
+rm -f  ~/.config/autostart/org.fcitx.Fcitx5.desktop     # suppressed fcitx5 autostart
 ```
 
-## 许可
+## License
 
 MIT
