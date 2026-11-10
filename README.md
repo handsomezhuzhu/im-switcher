@@ -67,6 +67,10 @@ Upload it at <https://extensions.gnome.org/upload/>. Keep `shell-version` in
 `metadata.json` covering the current GNOME — under-declaring it is the #1 cause of
 "installed but does nothing" on EGO.
 
+Note: `shexli` (EGO's static analyzer) reports `EGO-M-004` on `shell-version` here
+because it hard-codes "major > 50" as a future release. GNOME 51 is out and EGO
+accepts it — don't drop the entry to silence the linter.
+
 ## CLI
 
 ```bash

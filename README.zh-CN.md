@@ -61,6 +61,10 @@ instabox ssh mybox -- 'git clone https://github.com/handsomezhuzhu/im-switcher.g
 传到 <https://extensions.gnome.org/upload/>。注意 `metadata.json` 里的
 `shell-version` 要覆盖当前 GNOME——声明跟不上是 EGO 上"装了不生效"的头号原因。
 
+注意：EGO 的静态检查器 `shexli` 会对这里的 `shell-version` 报 `EGO-M-004`，
+因为它把"主版本号 > 50"硬编码成未来版本。GNOME 51 早就发布了、EGO 也接受，
+别为了消掉这个提示把 51 删了。
+
 ## 命令行
 
 ```bash

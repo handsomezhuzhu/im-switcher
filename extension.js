@@ -3,7 +3,6 @@
  * from the top panel, with a restart/logout prompt.
  *
  * 源码字符串一律用英文，翻译走 gettext（po/zh_CN.po）。
- *
  * 安装：scripts/install.sh
  */
 
@@ -26,20 +25,13 @@ import {
     applyProfile,
     fcitxInstalled,
     pathsFor,
-    pendingProfile,
+    pendingProfileAsync,
     profileFromEnvValue,
 } from './lib/profiles.js';
 import {endSession} from './lib/session.js';
 
-/**
- * St.BoxLayout 的朝向属性在 GNOME 48 从 vertical(bool) 换成了 orientation(enum)，
- * 新旧不兼容：48+ 传 vertical 会抛 "No property vertical"，
- * ≤47 传 orientation 会抛 "No property orientation"。
- * metadata 声明支持 45–52，所以这里按运行时实际支持的来，先试新的再退回老的。
- *
- * （这个坑是本项目在 instabox 的 Ubuntu 24.04 / GNOME 46 盒子上跑
- *  scripts/ci-shell-test.sh 时发现的——本地只有 GNOME 51，永远发现不了。）
- */
+// St.BoxLayout 的朝向属性 GNOME 48 起从 vertical(bool) 换成 orientation(enum)，
+// 新旧不兼容；metadata 声明支持 45–51，所以先试新的、抛异常就退回老的。
 function boxLayout(vertical, extraParams = {}) {
     const params = {...extraParams};
     try {
@@ -74,7 +66,7 @@ class IMSwitcherIndicator extends PanelMenu.Button {
         box.add_child(this._label);
         this.add_child(box);
 
-        this.menu.connect('open-state-changed', (_menu, open) => {
+        this._menuOpenId = this.menu.connect('open-state-changed', (_menu, open) => {
             if (open)
                 this._rebuild();
         });
@@ -82,83 +74,98 @@ class IMSwitcherIndicator extends PanelMenu.Button {
         this._syncLabel();
     }
 
-    _syncLabel() {
-        this._label.text = PROFILES[pendingProfile(this._paths)].label;
+    destroy() {
+        if (this._menuOpenId) {
+            this.menu.disconnect(this._menuOpenId);
+            this._menuOpenId = 0;
+        }
+        super.destroy();
+    }
+
+    _syncLabel(pending) {
+        // _init() 里不知道当前框架，让它自己去读
+        if (pending === undefined) {
+            pendingProfileAsync(this._paths, value => this._syncLabel(value));
+            return;
+        }
+        this._label.text = PROFILES[pending].label;
     }
 
     _rebuild() {
         this.menu.removeAll();
-        const pending = pendingProfile(this._paths);
-        const live = profileFromEnvValue(GLib.getenv('GTK_IM_MODULE'));
-        const waiting = pending !== live;
+        pendingProfileAsync(this._paths, pending => {
+            const live = profileFromEnvValue(GLib.getenv('GTK_IM_MODULE'));
+            const waiting = pending !== live;
 
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(_('Input Method')));
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(_('Input Method')));
 
-        const info = new PopupMenu.PopupMenuItem(waiting
-            ? _('After login: %s').format(PROFILES[pending].label)
-            : _('Current: %s').format(PROFILES[pending].label));
-        info.sensitive = false;
-        this.menu.addMenuItem(info);
+            const info = new PopupMenu.PopupMenuItem(waiting
+                ? _('After login: %s').format(PROFILES[pending].label)
+                : _('Current: %s').format(PROFILES[pending].label));
+            info.sensitive = false;
+            this.menu.addMenuItem(info);
 
-        for (const target of [FCITX5, IBUS]) {
-            if (target === pending)
-                continue;
-            const item = new PopupMenu.PopupMenuItem(_('Switch to %s').format(PROFILES[target].label));
-            item.connect('activate', () => this._confirmSwitch(target));
-            this.menu.addMenuItem(item);
-        }
-
-        if (waiting) {
-            for (const [label, action] of [
-                [_('Log out now'), 'logout'],
-                [_('Restart now'), 'reboot'],
-            ]) {
-                const item = new PopupMenu.PopupMenuItem(label);
-                item.connect('activate', () => this._confirmEndSession(action));
+            for (const target of [FCITX5, IBUS]) {
+                if (target === pending)
+                    continue;
+                const item = new PopupMenu.PopupMenuItem(
+                    _('Switch to %s').format(PROFILES[target].label));
+                item.connect('activate', () => this._confirmSwitch(target));
                 this.menu.addMenuItem(item);
             }
-        }
 
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        const tools = [
-            [_('Fcitx 5 Config'), 'fcitx5-configtool'],
-            [_('WowType Settings'), 'wowtype-config'],
-        ];
-        for (const [label, command] of tools) {
-            if (GLib.find_program_in_path(command) === null)
-                continue;
-            const item = new PopupMenu.PopupMenuItem(label);
-            item.connect('activate', () => {
-                try {
-                    const app = Gio.AppInfo.create_from_commandline(
-                        command, null, Gio.AppInfoCreateFlags.NONE);
-                    app.launch([], null);
-                } catch (error) {
-                    Main.notify(label, error.message);
+            if (waiting) {
+                for (const [label, action] of [
+                    [_('Log out now'), 'logout'],
+                    [_('Restart now'), 'reboot'],
+                ]) {
+                    const item = new PopupMenu.PopupMenuItem(label);
+                    item.connect('activate', () => this._confirmEndSession(action));
+                    this.menu.addMenuItem(item);
                 }
-            });
-            this.menu.addMenuItem(item);
-        }
+            }
 
-        if (pending === FCITX5) {
-            const item = new PopupMenu.PopupMenuItem(_('Restart Fcitx 5'));
-            item.connect('activate', () => {
-                try {
-                    Gio.Subprocess.new(['fcitx5', '-r', '-d'], Gio.SubprocessFlags.NONE);
-                } catch (error) {
-                    Main.notify(_('Failed to restart Fcitx 5'), error.message);
-                }
-            });
-            this.menu.addMenuItem(item);
-        }
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+            const tools = [
+                [_('Fcitx 5 Config'), 'fcitx5-configtool'],
+                [_('WowType Settings'), 'wowtype-config'],
+            ];
+            for (const [label, command] of tools) {
+                if (GLib.find_program_in_path(command) === null)
+                    continue;
+                const item = new PopupMenu.PopupMenuItem(label);
+                item.connect('activate', () => {
+                    try {
+                        Gio.AppInfo.create_from_commandline(
+                            command, null, Gio.AppInfoCreateFlags.NONE).launch([], null);
+                    } catch (error) {
+                        Main.notify(label, error.message);
+                    }
+                });
+                this.menu.addMenuItem(item);
+            }
+
+            if (pending === FCITX5) {
+                const item = new PopupMenu.PopupMenuItem(_('Restart Fcitx 5'));
+                item.connect('activate', () => {
+                    try {
+                        // fcitx5 -r 是官方文档里的重启方式
+                        Gio.Subprocess.new(['fcitx5', '-r', '-d'], Gio.SubprocessFlags.NONE);
+                    } catch (error) {
+                        Main.notify(_('Failed to restart Fcitx 5'), error.message);
+                    }
+                });
+                this.menu.addMenuItem(item);
+            }
+        });
     }
 
     _confirmSwitch(target) {
-        try {
-            const pending = pendingProfile(this._paths);
+        pendingProfileAsync(this._paths, pending => {
             if (target === pending) {
-                Main.notify(_('Input Method Framework'), _('Already on %s').format(PROFILES[target].label));
+                Main.notify(_('Input Method Framework'),
+                    _('Already on %s').format(PROFILES[target].label));
                 return;
             }
 
@@ -167,9 +174,16 @@ class IMSwitcherIndicator extends PanelMenu.Button {
                 return;
             }
 
-            // 先落盘，再问要不要马上注销/重启
-            applyProfile(this._paths, target);
-            this._syncLabel();
+            try {
+                // 先落盘，再问要不要马上注销/重启
+                applyProfile(this._paths, target);
+                this._syncLabel(target);
+            } catch (error) {
+                // 出错了也要响一声，不能一点下去没反应
+                console.error(`[im-switcher] switch failed: ${error.message}`);
+                Main.notify(_('Failed to switch the input method framework'), error.message);
+                return;
+            }
 
             this._showDialog({
                 title: _('Switched to %s').format(PROFILES[target].label),
@@ -201,11 +215,7 @@ class IMSwitcherIndicator extends PanelMenu.Button {
                     },
                 ],
             });
-        } catch (error) {
-            // 出错了也要响一声，不能一点下去没反应
-            console.error(`[im-switcher] switch failed: ${error.message}\n${error.stack}`);
-            Main.notify(_('Failed to switch the input method framework'), error.message);
-        }
+        });
     }
 
     _confirmEndSession(action) {
@@ -287,8 +297,7 @@ export default class IMSwitcherExtension extends Extension {
         this._paths = pathsFor(GLib.get_home_dir());
         this._indicator = new IMSwitcherIndicator(this._paths);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
-        // CI 靠这一行确认扩展真的加载起来了
-        console.log(`[im-switcher] enabled, framework=${pendingProfile(this._paths)}`);
+        console.log('[im-switcher] enabled');
     }
 
     disable() {
