@@ -60,7 +60,7 @@ jobs:
       - name: 能打出 EGO 上传用的 zip
         run: |
           dnf -y install zip
-          ./scripts/build-zip.sh
+          bash scripts/build-zip.sh
           unzip -l im-switcher.zip | grep -q metadata.json
 
   # 纯逻辑：框架状态读写、Hidden 覆盖、反复切换
@@ -73,7 +73,7 @@ jobs:
       - name: 装 gjs
         run: dnf -y install gjs
       - name: 跑测试
-        run: ./tests/run.sh
+        run: bash tests/run.sh
 
   # 最有价值的一步：真加载一次。
   # 像 St.BoxLayout.vertical 在 GNOME 48 被删那种"语法没错、一跑就崩"的问题，
@@ -97,7 +97,7 @@ jobs:
           dnf -y install gnome-shell gettext python3 dbus-daemon \
             mesa-dri-drivers libglvnd-glx
       - name: 起无头 GNOME Shell 加载扩展
-        run: SHELL_TIMEOUT=90 ./scripts/ci-shell-test.sh
+        run: SHELL_TIMEOUT=90 bash scripts/ci-shell-test.sh
       - name: 失败时把 shell 日志贴出来
         if: failure()
         run: |
