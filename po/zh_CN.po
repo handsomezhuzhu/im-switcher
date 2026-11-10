@@ -1,0 +1,126 @@
+# Chinese (Simplified) translation for im-switcher.
+# Copyright (C) 2026 handsomezhuzhu
+# This file is distributed under the same license as the im-switcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: im-switcher\n"
+"Report-Msgid-Bugs-To: https://github.com/handsomezhuzhu/im-switcher/issues\n"
+"POT-Creation-Date: 2026-11-10 20:48+0800\n"
+"PO-Revision-Date: 2026-11-10 21:00+0800\n"
+"Last-Translator: handsomezhuzhu <2658601135@qq.com>\n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: extension.js:37 extension.js:75
+msgid "Input Method"
+msgstr "输入法"
+
+#: extension.js:78
+#, javascript-format
+msgid "After login: %s"
+msgstr "重登后生效：%s"
+
+#: extension.js:79
+#, javascript-format
+msgid "Current: %s"
+msgstr "当前：%s"
+
+#: extension.js:86
+#, javascript-format
+msgid "Switch to %s"
+msgstr "切换到 %s"
+
+#: extension.js:93
+msgid "Log out now"
+msgstr "立即注销"
+
+#: extension.js:94
+msgid "Restart now"
+msgstr "立即重启"
+
+#: extension.js:105
+msgid "Fcitx 5 Config"
+msgstr "Fcitx5 配置"
+
+#: extension.js:106
+msgid "WowType Settings"
+msgstr "WowType 设置"
+
+#: extension.js:125
+msgid "Restart Fcitx 5"
+msgstr "重启 Fcitx5"
+
+#: extension.js:130
+msgid "Failed to restart Fcitx 5"
+msgstr "重启 Fcitx5 失败"
+
+#: extension.js:141
+msgid "Input Method Framework"
+msgstr "输入法框架"
+
+#: extension.js:141
+#, javascript-format
+msgid "Already on %s"
+msgstr "已经是 %s 了"
+
+#: extension.js:155
+#, javascript-format
+msgid "Switched to %s"
+msgstr "已切换到 %s"
+
+#: extension.js:156
+msgid ""
+"Log out or restart to apply the change.\n"
+"Log out now?"
+msgstr ""
+"需要注销或重启后生效\n"
+"现在注销吗？"
+
+#: extension.js:159 extension.js:199
+msgid "Later"
+msgstr "稍后"
+
+#: extension.js:165 extension.js:193
+msgid "Restart"
+msgstr "重启"
+
+#: extension.js:169 extension.js:210
+msgid "Failed to restart"
+msgstr "重启失败"
+
+#: extension.js:174 extension.js:193
+msgid "Log out"
+msgstr "注销"
+
+#: extension.js:178 extension.js:210
+msgid "Failed to log out"
+msgstr "注销失败"
+
+#: extension.js:187
+msgid "Failed to switch the input method framework"
+msgstr "切换输入法框架失败"
+
+#: extension.js:196
+msgid "Restart now?"
+msgstr "现在重启吗？"
+
+#: extension.js:196
+msgid "Log out now?"
+msgstr "现在注销吗？"
+
+#: extension.js:220
+msgid "Fcitx 5 is not installed"
+msgstr "还没有安装 fcitx5"
+
+#: extension.js:226
+msgid "Install it first."
+msgstr "先装好再切换。"
+
+#: extension.js:229
+msgid "OK"
+msgstr "知道了"

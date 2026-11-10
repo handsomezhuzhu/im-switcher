@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # 不需要图形环境，几秒钟跑完
+  static:
+    name: 静态检查
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 装工具
+        run: dnf -y install gjs nodejs gettext python3
+
+      - name: JS 语法（按 ESM 模块检查）
+        run: |
+          set -e
+          for f in extension.js lib/*.js tests/*.js; do
+            cp "$f" /tmp/chk.mjs
+            node --check /tmp/chk.mjs
+            echo "ok   $f"
+          done
+
+      - name: metadata.json 合法且字段齐全
+        run: |
+          python3 - <<'PY'
+          import json
+          d = json.load(open('metadata.json'))
+          for key in ('uuid', 'name', 'description', 'shell-version', 'url', 'version'):
+              assert key in d, f'缺少字段 {key}'
+          assert '@' in d['uuid'], 'UUID 必须是 xxx@yyy 形式'
+          assert d['gettext-domain'] == 'im-switcher', 'gettext-domain 要和生产 .mo 的文件名一致'
+          assert '51' in d['shell-version'], 'shell-version 至少要覆盖当前 GNOME'
+          print('metadata.json OK:', d['uuid'], d['shell-version'])
+          PY
+
+      - name: 翻译文件能编译
+        run: |
+          set -e
+          for po in po/*.po; do
+            [ -e "$po" ] || { echo "没有 .po，跳过"; continue; }
+            msgfmt --check -o /dev/null "$po"
+            echo "ok   $po"
+          done
+
+      - name: shell 脚本语法
+        run: |
+          set -e
+          for s in scripts/*.sh tests/run.sh; do
+            bash -n "$s"
+            echo "ok   $s"
+          done
+
+      - name: 能打出 EGO 上传用的 zip
+        run: |
+          dnf -y install zip
+          ./scripts/build-zip.sh
+          unzip -l im-switcher.zip | grep -q metadata.json
+
+  # 纯逻辑：框架状态读写、Hidden 覆盖、反复切换
+  unit:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 装 gjs
+        run: dnf -y install gjs
+      - name: 跑测试
+        run: ./tests/run.sh
+
+  # 最有价值的一步：真加载一次。
+  # 像 St.BoxLayout.vertical 在 GNOME 48 被删那种"语法没错、一跑就崩"的问题，
+  # 只有让真的 GNOME Shell 加载扩展才能发现。
+  # 用 mutter 的无头后端，不开窗口、不碰显示器，输出全进日志。
+  shell:
+    name: 真机加载（${{ matrix.image }}）
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+      # 容器里跑 GUI 栈常规操作；不影响别的 job
+      options: --security-opt seccomp=unconfined
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [fedora:44, fedora:latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: 装依赖
+        run: |
+          dnf -y install gnome-shell gettext python3 dbus-daemon \
+            mesa-dri-drivers libglvnd-glx
+      - name: 起无头 GNOME Shell 加载扩展
+        run: SHELL_TIMEOUT=90 ./scripts/ci-shell-test.sh
+      - name: 失败时把 shell 日志贴出来
+        if: failure()
+        run: |
+          log=$(grep -o '/tmp/[^ ]*shell.log' /dev/null; find /tmp -name shell.log -newermt '-10 minutes' | head -1)
+          [ -n "$log" ] && tail -100 "$log" || echo "没找到 shell.log"

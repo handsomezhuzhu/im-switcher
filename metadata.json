@@ -1,0 +1,18 @@
+{
+  "uuid": "im-switcher@handsomezhuzhu.github.io",
+  "name": "IM Switcher",
+  "description": "Switch the input method framework (IBus ⇄ Fcitx5) from the top panel, with a log out / restart prompt.",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51",
+    "52"
+  ],
+  "url": "https://github.com/handsomezhuzhu/im-switcher",
+  "version": 1,
+  "gettext-domain": "im-switcher"
+}
