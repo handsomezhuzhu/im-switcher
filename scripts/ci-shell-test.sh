@@ -50,9 +50,11 @@ LOG="$HOME/shell.log"
 # 所以"启用扩展"和"起 shell"放在同一个 dbus-run-session 里：
 #   python 先 gsettings set，再 exec gnome-shell，shell 的输出直接进日志。
 # --headless：mutter 的无头后端，不开窗口、不碰显示器
+# --no-x11：不拉 Xwayland（容器里起不来，会把 shell 带崩）
 # dbus-run-session：一条独立的会话总线，免得和桌面上的 shell 抢名字
 echo "==> 起无头 GNOME Shell（最多 ${SHELL_TIMEOUT:-60} 秒）"
-timeout "${SHELL_TIMEOUT:-60}" dbus-run-session -- python3 - "$UUID" <<'PY' >"$LOG" 2>&1 || true
+shell_rc=0
+timeout "${SHELL_TIMEOUT:-60}" dbus-run-session -- python3 - "$UUID" <<'PY' >"$LOG" 2>&1 || shell_rc=$?
 import ast, os, subprocess, sys
 
 uuid = sys.argv[1]
@@ -83,6 +85,9 @@ else:
 
 os.execvp('gnome-shell', ['gnome-shell', '--headless', '--no-x11'])
 PY
+shell_rc=$?
+# 124 = 被 timeout 杀掉（正常，说明 shell 一直活着，是我们主动停的）
+echo "==> shell 退出码: $shell_rc（124=跑满超时被停掉，属于正常）"
 
 echo
 echo "===== 本扩展的日志 ====="
@@ -94,8 +99,11 @@ rc=0
 
 dump_log() {
     echo
-    echo "===== shell 日志末尾 80 行（排查用） ====="
-    tail -80 "$LOG" 2>/dev/null || echo "(读不到日志)"
+    echo "===== shell 日志开头 40 行 ====="
+    head -40 "$LOG" 2>/dev/null || echo "(读不到日志)"
+    echo
+    echo "===== shell 日志末尾 40 行 ====="
+    tail -40 "$LOG" 2>/dev/null || echo "(读不到日志)"
 }
 
 if ! grep -q '\[im-switcher\] enabled, framework=' "$LOG"; then
