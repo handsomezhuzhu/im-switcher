@@ -81,7 +81,7 @@ if uuid not in lst:
 else:
     print('==> 本来就在启用列表里', flush=True)
 
-os.execvp('gnome-shell', ['gnome-shell', '--headless'])
+os.execvp('gnome-shell', ['gnome-shell', '--headless', '--no-x11'])
 PY
 
 echo
